@@ -1,6 +1,6 @@
 {
   "name": "paseo-markdown",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Write Markdown in Paseo with a live preview rendered by Paseo's own Markdown engine",
   "keywords": [
     "codemirror",

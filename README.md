@@ -121,7 +121,7 @@ paseo plugin add "$PWD"
 ```
 
 Reload with `paseo plugin reload live-markdown` after editing. `client/web.ts` loads CodeMirror on
-web and desktop only. `server/markdown-files.ts` implements filename suggestions, atomic writes,
+web and desktop only. `server/markdown-files.ts` implements filename suggestions, atomic first saves,
 and conflict detection. Its tests use temporary directories.
 
 ```

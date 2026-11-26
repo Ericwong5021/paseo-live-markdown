@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
@@ -219,3 +229,34 @@ test("saving keeps existing file permissions", { skip: process.platform === "win
   assert.equal(result.status, "ok");
   assert.equal((await stat(path)).mode & 0o777, 0o640);
 });
+
+test(
+  "does not bypass the write permissions of an existing file",
+  {
+    skip: process.platform === "win32" || process.getuid?.() === 0,
+  },
+  async () => {
+    const root = await makeRoot();
+    const path = join(root, "read-only.md");
+    await writeFile(path, "protected");
+    await chmod(path, 0o444);
+    try {
+      const before = await readMarkdownFile(root, "read-only.md");
+      assert.equal(before.status, "ok");
+      await assert.rejects(
+        () =>
+          writeMarkdownFile({
+            root,
+            path: "read-only.md",
+            text: "updated",
+            expectedRevision: before.revision,
+            force: true,
+          }),
+        { code: "EACCES" },
+      );
+      assert.equal(await readFile(path, "utf8"), "protected");
+    } finally {
+      await chmod(path, 0o644);
+    }
+  },
+);

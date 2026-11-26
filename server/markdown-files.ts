@@ -1,6 +1,5 @@
 import { constants } from "node:fs";
 import {
-  chmod,
   link,
   lstat,
   mkdir,
@@ -8,7 +7,6 @@ import {
   open,
   readdir,
   realpath,
-  rename,
   rm,
   stat,
   writeFile,
@@ -18,6 +16,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { isMarkdownPath, nextUntitledPath, normalizeMarkdownPath } from "../shared/paths";
 
 const pendingWrites = new Map<string, Promise<unknown>>();
+const safeOpenFlags = (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
 
 export async function suggestMarkdownPath(root: string, base: string) {
   if (normalizeMarkdownPath(base) !== `${base}.md` || base.includes("/")) {
@@ -32,10 +31,7 @@ export async function readMarkdownFile(root: string, path: string) {
   const absolute = await locateFile(root, path);
   if (!absolute || !(await inspectFile(absolute))) return { status: "missing" as const };
 
-  const file = await open(
-    absolute,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
-  ).catch((cause) => {
+  const file = await open(absolute, constants.O_RDONLY | safeOpenFlags).catch((cause) => {
     if (isMissing(cause)) return null;
     throw cause;
   });
@@ -77,18 +73,35 @@ export async function writeMarkdownFile(input: {
       return { status: "conflict" as const };
     }
 
-    return stageText(dirname(absolute), input.text, async (stagedFile) => {
-      await chmod(stagedFile, Number(info.mode & 0o777n));
-      // Recheck after staging so a slow write cannot clobber an edit that arrived while staging.
+    // Open without truncating. Writing to the existing inode preserves its access controls,
+    // ownership and metadata, and never turns a directory's write access into file write access.
+    const file = await open(absolute, constants.O_WRONLY | safeOpenFlags).catch((cause) => {
+      if (isMissing(cause)) return null;
+      throw cause;
+    });
+    if (!file) return { status: "missing" as const };
+    try {
+      const opened = await file.stat({ bigint: true });
+      if (!opened.isFile()) return { status: "missing" as const };
       const current = await inspectFile(absolute);
       if (!current) return { status: "missing" as const };
-      if (revisionOf(current) !== revisionOf(info)) return { status: "conflict" as const };
+      if (revisionOf(opened) !== revisionOf(info) || revisionOf(current) !== revisionOf(opened)) {
+        return { status: "conflict" as const };
+      }
+      const bytes = Buffer.from(input.text, "utf8");
+      await file.writeFile(bytes);
+      if (BigInt(bytes.length) < opened.size) await file.truncate(bytes.length);
 
-      await rename(stagedFile, absolute);
-      const written = await inspectFile(absolute);
-      if (!written) return { status: "missing" as const };
+      const written = await file.stat({ bigint: true });
+      const atPath = await inspectFile(absolute);
+      if (!atPath) return { status: "missing" as const };
+      if (revisionOf(atPath) !== revisionOf(written) || written.size !== BigInt(bytes.length)) {
+        return { status: "conflict" as const };
+      }
       return { status: "ok" as const, ...fileMetadata(written) };
-    });
+    } finally {
+      await file.close();
+    }
   });
 }
 
@@ -99,20 +112,29 @@ export async function createMarkdownFile(root: string, path: string, text: strin
   const target = join(parent, basename(absolute));
 
   return serializeWrite(target, async () => {
-    const created = await stageText(parent, text, async (stagedFile) => {
+    const staged = await stageText(parent, text, async (stagedFile) => {
+      const info = await lstat(stagedFile, { bigint: true });
       try {
         // Publish the complete draft exclusively, even when two tabs save to the same path.
         await link(stagedFile, target);
-        return true;
+        return info;
       } catch (cause) {
-        if ((cause as NodeJS.ErrnoException).code === "EEXIST") return false;
+        if ((cause as NodeJS.ErrnoException).code === "EEXIST") return null;
         throw cause;
       }
     });
-    if (!created) return { status: "exists" as const };
+    if (!staged) return { status: "exists" as const };
     // Removing the staging link changes ctime, so read the revision after cleanup.
     const info = await inspectFile(target);
     if (!info) throw new Error("The file was removed immediately after saving.");
+    if (
+      info.dev !== staged.dev ||
+      info.ino !== staged.ino ||
+      info.size !== staged.size ||
+      info.mtimeNs !== staged.mtimeNs
+    ) {
+      throw new Error("The file changed immediately after saving. Your draft remains open.");
+    }
     return { status: "created" as const, ...fileMetadata(info) };
   });
 }

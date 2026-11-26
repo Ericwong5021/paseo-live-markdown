@@ -35,7 +35,7 @@ export interface MarkdownDocument {
  * unsaved. A disk change with unsaved edits is a conflict the user resolves explicitly.
  */
 export function useMarkdownDocument(
-  file: Pick<PluginFile, "name" | "readText" | "writeText" | "watch">,
+  file: Pick<PluginFile, "readText" | "writeText" | "watch">,
   tab: PluginTab,
   { isDraft = neverDraft, blank = false } = {},
 ): MarkdownDocument {
@@ -126,7 +126,9 @@ export function useMarkdownDocument(
 
   const persist = useCallback(
     async (force: boolean) => {
-      if (saving.current || !unsaved.current || issueRef.current === "deleted") return;
+      if (!alive.current || saving.current || !unsaved.current || issueRef.current === "deleted") {
+        return;
+      }
       if (!force && issueRef.current) return;
       saving.current = true;
       try {
@@ -150,7 +152,7 @@ export function useMarkdownDocument(
           } else if (alive.current && issueRef.current) {
             setPhase("dirty");
           }
-        } while (!isDraft() && unsaved.current && !issueRef.current);
+        } while (alive.current && !isDraft() && unsaved.current && !issueRef.current);
       } catch (cause) {
         if (!alive.current) return;
         if (cause instanceof PluginFileConflictError) {
@@ -221,17 +223,11 @@ export function useMarkdownDocument(
     });
     return () => {
       unwatch();
+      // Unmount also follows an explicit "Close without saving" action in Paseo.
       clearTimeout(saveTimer.current);
-      // File panels flush pending autosaves on unmount. Workspace drafts only save on request.
       readVersion.current += 1;
-      if (!isDraft() && unsaved.current && !saving.current && !issueRef.current) {
-        const pending = latest.current;
-        void file.writeText(pending).catch((cause) => {
-          console.warn(`Unsaved edits to ${file.name} were not written: ${messageOf(cause)}`);
-        });
-      }
     };
-  }, [blank, file, isDraft, load, reportIssue]);
+  }, [blank, file, load, reportIssue]);
 
   return {
     text,

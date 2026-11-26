@@ -108,7 +108,7 @@ paseo plugin add "$PWD"
 
 修改代码后运行 `paseo plugin reload live-markdown`。
 
-只有浏览器和桌面端会通过 `client/web.ts` 加载 CodeMirror。`server/markdown-files.ts` 负责建议文件名、原子写入和检测文件冲突。`tests/` 用临时目录验证这些行为。
+只有浏览器和桌面端会通过 `client/web.ts` 加载 CodeMirror。`server/markdown-files.ts` 负责建议文件名、原子创建草稿文件和检测文件冲突。`tests/` 用临时目录验证这些行为。
 
 ```
 live-markdown/
