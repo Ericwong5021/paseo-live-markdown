@@ -1,0 +1,16 @@
+{
+  "id": "live-markdown",
+  "name": "Paseo-markdown",
+  "description": "Write Markdown in a workspace tab with a live preview rendered by Paseo.",
+  "translations": {
+    "zh-CN": {
+      "name": "Paseo-markdown",
+      "description": "在编辑 Markdown 的同时用 Paseo 内置渲染器实时预览。"
+    }
+  },
+  "media": ["assets/split-view.png"],
+  "requirements": {
+    "paseo": ">=0.15.3"
+  },
+  "build": [["npm", "ci", "--omit=dev", "--ignore-scripts"]]
+}

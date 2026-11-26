@@ -1,0 +1,66 @@
+{
+  "name": "paseo-markdown",
+  "version": "0.1.0",
+  "description": "Write Markdown in Paseo with a live preview rendered by Paseo's own Markdown engine",
+  "keywords": [
+    "codemirror",
+    "editor",
+    "markdown",
+    "paseo",
+    "paseo-plugin",
+    "preview"
+  ],
+  "homepage": "https://github.com/Ericwong5021/paseo-live-markdown#readme",
+  "bugs": {
+    "url": "https://github.com/Ericwong5021/paseo-live-markdown/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ericwong5021/paseo-live-markdown.git"
+  },
+  "files": [
+    "paseo-plugin.json",
+    "OVERVIEW.md",
+    "OVERVIEW.zh-CN.md",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "index.client.tsx",
+    "index.server.ts",
+    "client/",
+    "server/",
+    "shared/",
+    "tsconfig.json",
+    "assets/"
+  ],
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
+    "@lezer/highlight": "^1.2.5",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@getpaseo/plugin": "0.16.2",
+    "@types/node": "^24.10.1",
+    "@types/react": "~19.2.0",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@getpaseo/plugin": ">=0.15.3",
+    "react": ">=19",
+    "react-native": ">=0.81"
+  }
+}
